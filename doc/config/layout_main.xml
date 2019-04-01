@@ -8,6 +8,7 @@
 
     <!-- Links to the library documentation. -->
     <tab type="usergroup" title="Library documentation" url="[none]">
+      <tab type="user" title="Atomic" url="../atomic/index.html"/>
       <tab type="user" title="Secure Sockets" url="../secure_sockets/index.html"/>
       <tab type="user" title="Wi-Fi Management" url="../wifi/index.html"/>
       <tab type="user" title="Defender" url="../defender/index.html"/>
