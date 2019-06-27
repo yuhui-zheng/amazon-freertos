@@ -189,6 +189,10 @@ static void RunTests( void )
         RUN_TEST_GROUP( Full_Serializer_JSON );
         RUN_TEST_GROUP( Full_Serializer_JSON_deserialize );
     #endif
+
+    #if ( testrunnerFULL_HAL_PERF_CNTR == 1 )
+        RUN_TEST_GROUP( AWS_HAL_PERFCOUNTER_TEST );
+    #endif
 }
 /*-----------------------------------------------------------*/
 
