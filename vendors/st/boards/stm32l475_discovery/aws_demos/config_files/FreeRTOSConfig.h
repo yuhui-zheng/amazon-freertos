@@ -68,30 +68,38 @@
 #define configUSE_MALLOC_FAILED_HOOK                 1
 #define configUSE_APPLICATION_TASK_TAG               1
 #define configUSE_COUNTING_SEMAPHORES                1
-#define configGENERATE_RUN_TIME_STATS                0
 #define configOVERRIDE_DEFAULT_TICK_CONFIGURATION    1
 #define configRECORD_STACK_HIGH_ADDRESS              1
 
+/* defender metrics experiment */
+#define configGENERATE_RUN_TIME_STATS                1
+#define configUSE_STATS_FORMATTING_FUNCTIONS         0  /* not needed. */
+#define configSUPPORT_DYNAMIC_ALLOCATION             1
+
+extern void aws_hal_perfcounter_open( void );
+#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()    aws_hal_perfcounter_open()
+#define portGET_RUN_TIME_COUNTER_VALUE()            aws_hal_perfcounter_get_value()
+
 /* Co-routine definitions. */
-#define configUSE_CO_ROUTINES                        0
-#define configMAX_CO_ROUTINE_PRIORITIES              ( 2 )
+#define configUSE_CO_ROUTINES              0
+#define configMAX_CO_ROUTINE_PRIORITIES    ( 2 )
 
 /* Software timer definitions. */
-#define configUSE_TIMERS                             1
-#define configTIMER_TASK_PRIORITY                    ( configMAX_PRIORITIES - 2 )
-#define configTIMER_QUEUE_LENGTH                     10
-#define configTIMER_TASK_STACK_DEPTH                 ( configMINIMAL_STACK_SIZE * 6 )
+#define configUSE_TIMERS                   1
+#define configTIMER_TASK_PRIORITY          ( configMAX_PRIORITIES - 2 )
+#define configTIMER_QUEUE_LENGTH           10
+#define configTIMER_TASK_STACK_DEPTH       ( configMINIMAL_STACK_SIZE * 6 )
 
 /* Set the following definitions to 1 to include the API function, or zero
  * to exclude the API function. */
-#define INCLUDE_vTaskPrioritySet                     1
-#define INCLUDE_uxTaskPriorityGet                    1
-#define INCLUDE_vTaskDelete                          1
-#define INCLUDE_vTaskCleanUpResources                0
-#define INCLUDE_vTaskSuspend                         1
-#define INCLUDE_vTaskDelayUntil                      1
-#define INCLUDE_vTaskDelay                           1
-#define INCLUDE_xTaskGetSchedulerState               1
+#define INCLUDE_vTaskPrioritySet           1
+#define INCLUDE_uxTaskPriorityGet          1
+#define INCLUDE_vTaskDelete                1
+#define INCLUDE_vTaskCleanUpResources      0
+#define INCLUDE_vTaskSuspend               1
+#define INCLUDE_vTaskDelayUntil            1
+#define INCLUDE_vTaskDelay                 1
+#define INCLUDE_xTaskGetSchedulerState     1
 
 /* Cortex-M specific definitions. */
 #ifdef __NVIC_PRIO_BITS
@@ -122,11 +130,11 @@
     ( configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << ( 8 - configPRIO_BITS ) )
 
 /* Performance counter frequency in Hz. */
-#define configHAL_PERF_COUNTER_FREQ                     ( 10000000 )    // 10MHz
+#define configHAL_PERF_COUNTER_FREQ                  ( 10000000 )       /* 10MHz */
 
 /* Performance counter interrupt priority.
  * Do not disable performance counter interrupt in critical section. */
-#define configHAL_PERF_COUNTER_INTERRUPT_PRIORITY       ( configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY - 1 )
+#define configHAL_PERF_COUNTER_INTERRUPT_PRIORITY    ( configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY - 1 )
 
 /* Normal assert() semantics without relying on the provision of an assert.h
  * header file. */
@@ -199,6 +207,6 @@ extern int iMainRand32( void );
 #define configTCP_ECHO_CLIENT_PORT    7
 
 /* The platform FreeRTOS is running on. */
-#define configPLATFORM_NAME    "STM32L475"
+#define configPLATFORM_NAME           "STM32L475"
 
 #endif /* FREERTOS_CONFIG_H */

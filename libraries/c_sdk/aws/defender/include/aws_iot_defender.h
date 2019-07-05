@@ -124,7 +124,12 @@
  */
 typedef enum
 {
-    AWS_IOT_DEFENDER_METRICS_TCP_CONNECTIONS, /**< TCP connection metrics group. */
+    AWS_IOT_DEFENDER_METRICS_TCP_CONNECTIONS = 0, /**< TCP connection metrics group. */
+    AWS_IOT_DEFENDER_METRICS_TASK_RUNTIME_STAT,   /**< FreeRTOS kernel task runtime stat. */
+
+    /* Add defender metrics group above this line. */
+
+    AWS_IOT_DEFENDER_METRICS_GROUP_COUNT /**< Number of metrics groups for defender. */
 } AwsIotDefenderMetricsGroup_t;
 
 /**

@@ -230,7 +230,7 @@
 /*----------------- Below this line is INTERNAL used only --------------------*/
 
 /* This MUST be consistent with enum AwsIotDefenderMetricsGroup_t. */
-#define DEFENDER_METRICS_GROUP_COUNT    1
+#define DEFENDER_METRICS_GROUP_COUNT    AWS_IOT_DEFENDER_METRICS_GROUP_COUNT
 
 /**
  * Define encoder/decoder based on configuration AWS_IOT_DEFENDER_FORMAT.

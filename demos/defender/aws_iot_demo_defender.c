@@ -157,6 +157,10 @@ static void _defenderTask( void * param )
     AwsIotDefender_SetMetrics( AWS_IOT_DEFENDER_METRICS_TCP_CONNECTIONS,
                                AWS_IOT_DEFENDER_METRICS_ALL );
 
+    /* Specify all metrics in "kernel" group */
+    AwsIotDefender_SetMetrics( AWS_IOT_DEFENDER_METRICS_TASK_RUNTIME_STAT,
+                               AWS_IOT_DEFENDER_METRICS_ALL );
+
     /* Set metrics report period to 5 minutes(300 seconds) */
     AwsIotDefender_SetPeriod( 300 );
 
@@ -181,6 +185,35 @@ static void _defenderTask( void * param )
         SOCKETS_Shutdown( socket, SOCKETS_SHUT_RDWR );
         SOCKETS_Close( socket );
     #endif
+
+    /* prototype: see how runtime stat works, before shoving things into defender. Assume you have 20 tasks. */
+    UBaseType_t uxArraySize = uxTaskGetNumberOfTasks();
+    uint32_t ulTotalTime;
+    int i = 0;
+
+    TaskStatus_t * pxTaskStatusArray = pvPortMalloc( uxArraySize * sizeof( TaskStatus_t ) );
+
+    uxArraySize = uxTaskGetSystemState( pxTaskStatusArray, uxArraySize, &ulTotalTime );
+    ulTotalTime /= 100UL;
+
+    IotLogInfo( "---- Runtime Stats ----" );
+    IotLogInfo( "Task name [task number] (status): priority, stack watermark bytes, absolute (percentage)" );
+
+    for( i = 0; i < uxArraySize; i++ )
+    {
+        IotLogInfo( "%s \t[%lu] \t(%d): \t%lu, \t%lu bytes, \t%12lu \t(%lu%%)",
+                    pxTaskStatusArray[ i ].pcTaskName,
+                    pxTaskStatusArray[ i ].xTaskNumber,
+                    pxTaskStatusArray[ i ].eCurrentState,
+                    pxTaskStatusArray[ i ].uxCurrentPriority,
+                    pxTaskStatusArray[ i ].usStackHighWaterMark,
+                    pxTaskStatusArray[ i ].ulRunTimeCounter,
+                    pxTaskStatusArray[ i ].ulRunTimeCounter / ulTotalTime
+                    );
+    }
+
+    IotLogInfo( "---- Heap Stats ----" );
+    IotLogInfo( "Port total heap size %lu, free heap size %lu, minimum ever heap size %lu", configTOTAL_HEAP_SIZE, xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize() );
 
     IotLogInfo( "----Device Defender Demo End----.\r\n" );
 

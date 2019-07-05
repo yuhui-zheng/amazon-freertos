@@ -33,20 +33,42 @@
 
 #include "platform/iot_clock.h"
 
+/* FreeRTOS specific. -- todo: this file should not take dependency on FreeRTOS.  */
+#include "task.h"
+
 /* Used in debugging. It will decode the report with cbor format and print to stdout. */
-#define DEBUG_CBOR_PRINT    0
+#define DEBUG_CBOR_PRINT               0
 
-#define  HEADER_TAG         AwsIotDefenderInternal_SelectTag( "header", "hed" )
-#define  REPORTID_TAG       AwsIotDefenderInternal_SelectTag( "report_id", "rid" )
-#define  VERSION_TAG        AwsIotDefenderInternal_SelectTag( "version", "v" )
-#define  VERSION_1_0        "1.0"   /* Used by defender service to indicate the schema change of report, e.g. adding new field. */
-#define  METRICS_TAG        AwsIotDefenderInternal_SelectTag( "metrics", "met" )
+#define  HEADER_TAG                    AwsIotDefenderInternal_SelectTag( "header", "hed" )
+#define  REPORTID_TAG                  AwsIotDefenderInternal_SelectTag( "report_id", "rid" )
+#define  VERSION_TAG                   AwsIotDefenderInternal_SelectTag( "version", "v" )
+#define  VERSION_1_0                   "1.0" /* Used by defender service to indicate the schema change of report, e.g. adding new field. */
+#define  VERSION_1_1                   "1.1"
+#define  METRICS_TAG                   AwsIotDefenderInternal_SelectTag( "metrics", "met" )
 
-#define TCP_CONN_TAG        AwsIotDefenderInternal_SelectTag( "tcp_connections", "tc" )
-#define EST_CONN_TAG        AwsIotDefenderInternal_SelectTag( "established_connections", "ec" )
-#define TOTAL_TAG           AwsIotDefenderInternal_SelectTag( "total", "t" )
-#define CONN_TAG            AwsIotDefenderInternal_SelectTag( "connections", "cs" )
-#define REMOTE_ADDR_TAG     AwsIotDefenderInternal_SelectTag( "remote_addr", "rad" )
+/* Network metrics -- TCP connections. */
+#define TCP_CONN_TAG                   AwsIotDefenderInternal_SelectTag( "tcp_connections", "tc" )
+#define EST_CONN_TAG                   AwsIotDefenderInternal_SelectTag( "established_connections", "ec" )
+#define TOTAL_TAG                      AwsIotDefenderInternal_SelectTag( "total", "t" )
+#define CONN_TAG                       AwsIotDefenderInternal_SelectTag( "connections", "cs" )
+#define REMOTE_ADDR_TAG                AwsIotDefenderInternal_SelectTag( "remote_addr", "rad" )
+
+/* Kernel metrics. */
+#define KERNEL_METIRCS                 AwsIotDefenderInternal_SelectTag( "kernel_metrics", "km" )
+#define KERNEL_MCU_UPTIME              AwsIotDefenderInternal_SelectTag( "mcu_uptime", "mupt" )
+#define KERNEL_MCU_UTILIZATION         AwsIotDefenderInternal_SelectTag( "mcu_utilization", "mpct" )
+#define KERNEL_FREE_HEAP_SIZE          AwsIotDefenderInternal_SelectTag( "free_heap_size", "hp" )
+#define KERNEL_HEAP_LOW_WATERMARK      AwsIotDefenderInternal_SelectTag( "heap_low_watermark", "hplo" )
+#define KERNEL_NUM_OF_TASKS            AwsIotDefenderInternal_SelectTag( "num_of_tasks", "tno" )
+#define KERNEL_TASK_DETAILS            AwsIotDefenderInternal_SelectTag( "task_details", "tdet" )
+
+#define KERNEL_TASK_ID                 AwsIotDefenderInternal_SelectTag( "task_id", "tid" )
+#define KERNEL_TASK_NAME               AwsIotDefenderInternal_SelectTag( "task_name", "tn" )
+#define KERNEL_TASK_STATUS             AwsIotDefenderInternal_SelectTag( "task_status", "ts" )
+#define KERNEL_TASK_PRIORITY           AwsIotDefenderInternal_SelectTag( "task_priority", "tp" )
+#define KERNEL_TASK_ABS_CYCLES         AwsIotDefenderInternal_SelectTag( "task_abs_cycles", "tcyc" )
+#define KERNEL_TASK_PERCENTAGE         AwsIotDefenderInternal_SelectTag( "task_percentage", "tpct" )
+#define KERNEL_STACK_HIGH_WATERMARK    AwsIotDefenderInternal_SelectTag( "stack_high_watermark", "sthi" )
 
 /**
  * Structure to hold a metrics report.
@@ -57,6 +79,9 @@ typedef struct _metricsReport
     uint8_t * pDataBuffer;               /* Raw data buffer to be published with MQTT. */
     size_t size;                         /* Raw data size. */
 } _metricsReport_t;
+
+
+/*---------------------- Static Variables -------------------------*/
 
 /* Initialize metrics report. */
 static _metricsReport_t _report =
@@ -84,6 +109,8 @@ static void _serialize( void );
 
 static void _serializeTcpConnections( void * param1,
                                       const IotListDouble_t * pTcpConnectionsMetricsList );
+
+static void _serializeKernelRuntimeStats( void * param1 );
 
 #if DEBUG_CBOR_PRINT == 1
     static void _printReport();
@@ -138,8 +165,8 @@ bool AwsIotDefenderInternal_CreateReport( void )
     /* Copy the metrics flag user specified. */
     _copyMetricsFlag();
 
-    /* Generate report id based on current time. */
-    _AwsIotDefenderReportId = IotClock_GetTimeMs();
+    /* Report id, a monotonically increased integer. */
+    _AwsIotDefenderReportId++;
 
     /* Dry-run serialization to calculate the required size. */
     _serialize();
@@ -161,7 +188,7 @@ bool AwsIotDefenderInternal_CreateReport( void )
         /* Actual serialization. */
         _serialize();
 
-        /* Ouput the report to stdout if debugging mode is enabled. */
+        /* Output the report to stdout if debugging mode is enabled. */
         #if DEBUG_CBOR_PRINT == 1
             _printReport();
         #endif
@@ -271,6 +298,11 @@ static void _serialize( void )
             {
                 case AWS_IOT_DEFENDER_METRICS_TCP_CONNECTIONS:
                     IotMetrics_GetTcpConnections( ( void * ) &metricsMap, _serializeTcpConnections );
+                    break;
+
+                case AWS_IOT_DEFENDER_METRICS_TASK_RUNTIME_STAT:
+                    /* todo: For proto only. Needs to separate FreeRTOS specific implementation from abstraction. */
+                    _serializeKernelRuntimeStats( ( void * ) &metricsMap );
                     break;
 
                 default:
@@ -404,6 +436,131 @@ static void _serializeTcpConnections( void * param1,
     serializerError = _defenderEncoder.closeContainer( pMetricsObject, &tcpConnectionMap );
     assertNoError( serializerError );
 }
+
+/*-----------------------------------------------------------*/
+
+static void _serializeKernelRuntimeStats( void * param1 )
+{
+    /* Read FreeRTOS task information. */
+    /* todo: below needs to be moved to FreeRTOS abstraction. */
+    UBaseType_t uxArraySize = uxTaskGetNumberOfTasks();
+    uint32_t ulTotalTime;
+
+    TaskStatus_t * pxTaskStatusArray = pvPortMalloc( uxArraySize * sizeof( TaskStatus_t ) );
+
+    uxArraySize = uxTaskGetSystemState( pxTaskStatusArray, uxArraySize, &ulTotalTime );
+
+    /* todo: unnecessary opaque type within the same file. pass in the right type of pointer. */
+    IotSerializerEncoderObject_t * pMetricsObject = ( IotSerializerEncoderObject_t * ) param1;
+    IotSerializerEncoderObject_t mcuUptimeMap = IOT_SERIALIZER_ENCODER_CONTAINER_INITIALIZER_MAP;
+    IotSerializerEncoderObject_t taskDetailsArray = IOT_SERIALIZER_ENCODER_CONTAINER_INITIALIZER_ARRAY;
+
+    IotSerializerError_t serializerError = IOT_SERIALIZER_SUCCESS;
+    int i = 0;
+
+    void (* assertNoError)( IotSerializerError_t ) = _report.pDataBuffer == NULL ? _assertSuccessOrBufferToSmall
+                                                     : _assertSuccess;
+
+    /* Create the "mcu_uptime" map with 1 key "established_connections" */
+    serializerError = _defenderEncoder.openContainerWithKey( pMetricsObject,
+                                                             KERNEL_METIRCS,
+                                                             &mcuUptimeMap,
+                                                             6 ); /* define macro */
+    assertNoError( serializerError );
+
+    /* mcu_uptime, mcu_utilization. */
+    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                       KERNEL_MCU_UPTIME,
+                                                       IotSerializer_ScalarSignedInt( ulTotalTime ) );
+    assertNoError( serializerError );
+
+    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                       KERNEL_MCU_UTILIZATION,
+                                                       IotSerializer_ScalarSignedInt( 100 ) ); /* mocked data */
+    assertNoError( serializerError );
+
+    /* free_heap_size, heap_low_watermark. */
+    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                       KERNEL_FREE_HEAP_SIZE,
+                                                       IotSerializer_ScalarSignedInt( xPortGetFreeHeapSize() ) );
+    assertNoError( serializerError );
+
+    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                       KERNEL_HEAP_LOW_WATERMARK,
+                                                       IotSerializer_ScalarSignedInt( xPortGetMinimumEverFreeHeapSize() ) );
+    assertNoError( serializerError );
+
+    /* num_of_tasks. */
+    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                       KERNEL_NUM_OF_TASKS,
+                                                       IotSerializer_ScalarSignedInt( uxArraySize ) );
+    assertNoError( serializerError );
+
+    /* task details. */
+    serializerError = _defenderEncoder.openContainerWithKey( &mcuUptimeMap,
+                                                             KERNEL_TASK_DETAILS,
+                                                             &taskDetailsArray,
+                                                             6 );
+    assertNoError( serializerError );
+
+    for( i = 0; i < 6; i++ )
+    {
+        IotSerializerEncoderObject_t taskEntryMap = IOT_SERIALIZER_ENCODER_CONTAINER_INITIALIZER_MAP;
+
+        serializerError = _defenderEncoder.openContainer( &taskDetailsArray,
+                                                          &taskEntryMap,
+                                                          7 ); /* define macro. */
+        assertNoError( serializerError );
+
+        /* task_id, task_name, task_status, task_priority, task_abs_cycles, task_percentage, stack_high_watermark. */
+        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                           KERNEL_TASK_ID,
+                                                           IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].xTaskNumber ) );
+        assertNoError( serializerError );
+
+        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                           KERNEL_TASK_NAME,
+                                                           IotSerializer_ScalarTextString( pxTaskStatusArray[ i ].pcTaskName ) );
+        assertNoError( serializerError );
+
+        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                           KERNEL_TASK_STATUS,
+                                                           IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].eCurrentState ) );
+        assertNoError( serializerError );
+
+        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                           KERNEL_TASK_PRIORITY,
+                                                           IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].uxCurrentPriority ) );
+        assertNoError( serializerError );
+
+        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                           KERNEL_TASK_ABS_CYCLES,
+                                                           IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].ulRunTimeCounter ) );
+        assertNoError( serializerError );
+
+        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                           KERNEL_TASK_PERCENTAGE,
+                                                           IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].ulRunTimeCounter / ( ulTotalTime / 100 ) ) );
+        assertNoError( serializerError );
+
+        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                           KERNEL_STACK_HIGH_WATERMARK,
+                                                           IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].usStackHighWaterMark ) );
+        assertNoError( serializerError );
+
+        serializerError = _defenderEncoder.closeContainer( &taskDetailsArray, &taskEntryMap );
+        assertNoError( serializerError );
+    }
+
+    /* close all containers opened above. */
+    serializerError = _defenderEncoder.closeContainer( &mcuUptimeMap, &taskDetailsArray );
+    assertNoError( serializerError );
+
+    serializerError = _defenderEncoder.closeContainer( pMetricsObject, &mcuUptimeMap );
+    assertNoError( serializerError );
+}
+
+/*-----------------------------------------------------------*/
 
 #if DEBUG_CBOR_PRINT == 1
     #include "cbor.h"
