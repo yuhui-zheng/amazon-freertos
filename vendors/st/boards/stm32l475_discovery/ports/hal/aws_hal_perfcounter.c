@@ -1,33 +1,33 @@
 /*
-* Amazon FreeRTOS V1.x.x
-* Copyright (C) 2019 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in
-* all copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-* http://aws.amazon.com/freertos
-* http://www.FreeRTOS.org
-*/
+ * Amazon FreeRTOS V1.x.x
+ * Copyright (C) 2019 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ * http://aws.amazon.com/freertos
+ * http://www.FreeRTOS.org
+ */
 
 /**
-* @file aws_hal_perf_cntr.c
-* @brief File of the implementation for performance counter APIs calling STM drivers.
-*/
+ * @file aws_hal_perf_cntr.c
+ * @brief File of the implementation for performance counter APIs calling STM drivers.
+ */
 
 #include <stdint.h>
 
@@ -44,7 +44,7 @@
  * Default is set to 10MHz ==> (uint32_t) 0xffffffff / 10MHz = 429.4967s.
  * So roughly every 7 mins, kernel needs to serve an overflow IRQ.
  */
-#define PERF_COUNTER_FREQ_DEFAULT           ( 10000000 )
+#define PERF_COUNTER_FREQ_DEFAULT    ( 10000000 )
 
 /**
  * @brief Maximum performance counter frequency.
@@ -52,7 +52,7 @@
  * Maximum frequency for APB1 is 80MHz. Kernel needs to serve and overflow
  * IRQ in each ~53.6870s.
  */
-#define PERF_COUNTER_FREQ_MAX               ( 80000000 )
+#define PERF_COUNTER_FREQ_MAX        ( 80000000 )
 
 
 /**
@@ -65,17 +65,17 @@
  * be any value, but prescaler is (uint32_t)(PCLK1 frequency / configHAL_PERF_COUNTER_FREQ).
  */
 #ifdef configHAL_PERF_COUNTER_FREQ
-    #define HAL_PERF_COUNTER_FREQ       ( configHAL_PERF_COUNTER_FREQ )
+    #define HAL_PERF_COUNTER_FREQ    ( configHAL_PERF_COUNTER_FREQ )
 #else
-    #define HAL_PERF_COUNTER_FREQ       ( PERF_COUNTER_FREQ_DEFAULT )
+    #define HAL_PERF_COUNTER_FREQ    ( PERF_COUNTER_FREQ_DEFAULT )
 #endif
 
 /**
  * @brief Timer width, counter period, and loading value.
  */
-#define HW_TIMER_32_WIDTH           ( sizeof( uint32_t ) * 8 )
-#define HW_TIMER_32_CONST_PERIOD    ( UINT32_MAX )
-#define HW_TIMER_32_LOADING_VALUE   ( 0x0UL )
+#define HW_TIMER_32_WIDTH            ( sizeof( uint32_t ) * 8 )
+#define HW_TIMER_32_CONST_PERIOD     ( UINT32_MAX )
+#define HW_TIMER_32_LOADING_VALUE    ( 0x0UL )
 
 /*-----------------------------------------------------------*/
 
@@ -83,47 +83,48 @@ static TIM_HandleTypeDef xTimerHandle = { 0 };
 static uint32_t ulTimerOverflow = 0;
 
 /*-----------------------------------------------------------*/
+
 /**
  * @brief Enable interrupt for the timer.
  */
 
 void HAL_TIM_Base_MspInit( TIM_HandleTypeDef * pxTimerHandle )
 {
-
-    if ( pxTimerHandle->Instance == TIM5 )
+    if( pxTimerHandle->Instance == TIM5 )
     {
         /* Enable timer clock. */
         __HAL_RCC_TIM5_CLK_ENABLE();
 
         /* Set interrupt priority, and enable counter overflow interrupt. */
-        HAL_NVIC_SetPriority(TIM5_IRQn, configHAL_PERF_COUNTER_INTERRUPT_PRIORITY, 0 );
-        HAL_NVIC_EnableIRQ(TIM5_IRQn);
+        HAL_NVIC_SetPriority( TIM5_IRQn, configHAL_PERF_COUNTER_INTERRUPT_PRIORITY, 0 );
+        HAL_NVIC_EnableIRQ( TIM5_IRQn );
     }
 }
 
 /*-----------------------------------------------------------*/
+
 /**
  * @brief Clean up
  */
 
 void HAL_TIM_Base_MspDeInit( TIM_HandleTypeDef * pxTimerHandle )
 {
-    if ( pxTimerHandle->Instance == TIM5 )
+    if( pxTimerHandle->Instance == TIM5 )
     {
         /* Disable counter overflow interrupt. */
-        HAL_NVIC_DisableIRQ(TIM5_IRQn);
+        HAL_NVIC_DisableIRQ( TIM5_IRQn );
 
         /* Stop TIM5 source clock. */
         __HAL_RCC_TIM5_CLK_DISABLE();
     }
-
 }
 
 /*-----------------------------------------------------------*/
+
 /**
  * @brief Implement overflow ISR for TIM5
  */
-void HAL_TIM5_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+void HAL_TIM5_PeriodElapsedCallback( TIM_HandleTypeDef * htim )
 {
     ++ulTimerOverflow;
 }
@@ -139,13 +140,13 @@ void HAL_TIM5_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
  * .PeriodElapsedCallback for TIM5.
  */
 
-void TIM5_IRQHandler(void)
+void TIM5_IRQHandler( void )
 {
     HAL_TIM_IRQHandler( &xTimerHandle );
 }
 /*-----------------------------------------------------------*/
 
-void aws_hal_perfcounter_open(void)
+void aws_hal_perfcounter_open( void )
 {
     uint32_t ulTimClock = 0;
 
@@ -156,7 +157,7 @@ void aws_hal_perfcounter_open(void)
     ulTimClock = HAL_RCC_GetPCLK1Freq();
 
     /* Check user input frequency is valid. */
-    configASSERT( HAL_PERF_COUNTER_FREQ <= ulTimClock );
+    /*configASSERT( HAL_PERF_COUNTER_FREQ <= ulTimClock ); */
 
     /* From STM32L475xx chip datasheet:
      * - TIM2 and TIM5 are 32-bit general purpose timers, while others are all 16-bit.
@@ -191,7 +192,7 @@ void aws_hal_perfcounter_open(void)
     __HAL_TIM_URS_ENABLE( &xTimerHandle );
 
     /* Clear the initial SR.UIF bit before timer starts. */
-    __HAL_TIM_CLEAR_FLAG( &xTimerHandle, TIM_FLAG_UPDATE);
+    __HAL_TIM_CLEAR_FLAG( &xTimerHandle, TIM_FLAG_UPDATE );
 
     /* Register overflow IRQ callback. */
     HAL_TIM_RegisterCallback( &xTimerHandle, HAL_TIM_PERIOD_ELAPSED_CB_ID, HAL_TIM5_PeriodElapsedCallback );
@@ -202,7 +203,7 @@ void aws_hal_perfcounter_open(void)
 
 /*-----------------------------------------------------------*/
 
-void aws_hal_perfcounter_close( void)
+void aws_hal_perfcounter_close( void )
 {
     HAL_TIM_Base_Stop_IT( &xTimerHandle );
 
@@ -211,7 +212,7 @@ void aws_hal_perfcounter_close( void)
 
 /*-----------------------------------------------------------*/
 
-uint64_t aws_hal_perfcounter_get_value(void)
+uint64_t aws_hal_perfcounter_get_value( void )
 {
     UBaseType_t uxCriticalSectionType = portSET_INTERRUPT_MASK_FROM_ISR();
 
@@ -220,12 +221,11 @@ uint64_t aws_hal_perfcounter_get_value(void)
     portCLEAR_INTERRUPT_MASK_FROM_ISR( uxCriticalSectionType );
 
     return uTimerValue;
-
 }
 
 /*-----------------------------------------------------------*/
 
-uint32_t aws_hal_perfcounter_get_frequency_hz(void)
+uint32_t aws_hal_perfcounter_get_frequency_hz( void )
 {
     uint32_t ulTimClock = 0;
 
@@ -235,7 +235,7 @@ uint32_t aws_hal_perfcounter_get_frequency_hz(void)
     /* Avoid dividing by 0. */
     configASSERT( ulTimClock > 0 );
 
-    return ( ulTimClock / ( xTimerHandle.Init.Prescaler + 1 ) );
+    return( ulTimClock / ( xTimerHandle.Init.Prescaler + 1 ) );
 }
 
 /*-----------------------------------------------------------*/

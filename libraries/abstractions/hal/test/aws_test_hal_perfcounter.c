@@ -43,10 +43,10 @@
 
 /*-----------------------------------------------------------*/
 
-#define aws_halperfcountertestINT_MAX_VALUE             ( 0xFFFFFFFFUL )
+#define aws_halperfcountertestINT_MAX_VALUE            ( 0xFFFFFFFFUL )
 
-#define aws_halperfcountertestDEFAULT_DELAY_TIME_MS     ( 1 )
-#define aws_halperfcountertestSEC_TO_MSEC               ( 1000 )
+#define aws_halperfcountertestDEFAULT_DELAY_TIME_MS    ( 1 )
+#define aws_halperfcountertestSEC_TO_MSEC              ( 1000 )
 
 /*-----------------------------------------------------------*/
 
@@ -108,7 +108,7 @@ TEST( AWS_HAL_PERFCOUNTER_TEST, AFQP_AwsHalPerfCounterGetValue )
      * By when it's probably better to fail the test if it takes that long.
      * Two reads can be equal, depending on what frequency the counter is running at.
      */
-    TEST_ASSERT_MESSAGE ( ullCounter2 >= ullCounter1, "The value from the second read is expected to be no smaller than the first.");
+    TEST_ASSERT_MESSAGE( ullCounter2 >= ullCounter1, "The value from the second read is expected to be no smaller than the first." );
 
     /* Close the interface. */
     aws_hal_perfcounter_close();
@@ -137,7 +137,7 @@ TEST( AWS_HAL_PERFCOUNTER_TEST, AFQP_AwsHalPerfCounterGetValueWithDelay )
     ullCounter1 = aws_hal_perfcounter_get_value();
 
     /* Delay for AT MOST 1 msec. (Assume no interrupt.) */
-    vTaskDelay( aws_halperfcountertestDEFAULT_DELAY_TIME_MS  / portTICK_PERIOD_MS );
+    vTaskDelay( aws_halperfcountertestDEFAULT_DELAY_TIME_MS / portTICK_PERIOD_MS );
 
     /* Get the value from perf counter again. */
     ullCounter2 = aws_hal_perfcounter_get_value();
@@ -146,13 +146,13 @@ TEST( AWS_HAL_PERFCOUNTER_TEST, AFQP_AwsHalPerfCounterGetValueWithDelay )
      * If fails --
      * 1. Timer might not have been started correctly.
      * 2. Timer frequency might not be realistic. */
-    TEST_ASSERT_MESSAGE( ( ullCounter1 > 0 && ullCounter2 > 0 ) , "Perf counter value did not increase." );
+    TEST_ASSERT_MESSAGE( ( ullCounter1 > 0 && ullCounter2 > 0 ), "Perf counter value did not increase." );
 
     /* Frequency value should never be zero in any counter configuration. */
     TEST_ASSERT_MESSAGE( ( ulFreq > 0 ), "Counter frequency is expected to be not zero." );
 
     /* Convert time elapsed to counter cycles. The result can be zero, if counter is running at unrealistic frequency. */
-    //ullCounterThreshold = ( uint64_t ) aws_halperfcountertestDEFAULT_DELAY_TIME_MS * ulFreq / aws_halperfcountertestSEC_TO_MSEC;
+    /*ullCounterThreshold = ( uint64_t ) aws_halperfcountertestDEFAULT_DELAY_TIME_MS * ulFreq / aws_halperfcountertestSEC_TO_MSEC; */
 
     /* We can never have a golden assertion here, since --
      * 1, if no interrupt during vTaskDelay(), this is always true: ullCounter2 <= ullCounter1 + ullCounterThreshold
