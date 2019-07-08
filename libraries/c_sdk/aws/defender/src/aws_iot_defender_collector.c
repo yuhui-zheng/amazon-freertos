@@ -70,6 +70,10 @@
 #define KERNEL_TASK_PERCENTAGE         AwsIotDefenderInternal_SelectTag( "task_percentage", "tpct" )
 #define KERNEL_STACK_HIGH_WATERMARK    AwsIotDefenderInternal_SelectTag( "stack_high_watermark", "sthi" )
 
+/* Return value for _taskNameFilterIdle(). */
+#define TASK_NAME_EQUAL                ( 1 )
+#define TASK_NAME_NOT_EQUAL            ( 0 )
+
 /**
  * Structure to hold a metrics report.
  */
@@ -105,6 +109,8 @@ static void _assertSuccessOrBufferToSmall( IotSerializerError_t error );
 
 static void _copyMetricsFlag( void );
 
+static uint8_t _taskNameFilterIdle( const char * strA );
+
 static void _serialize( void );
 
 static void _serializeTcpConnections( void * param1,
@@ -134,6 +140,31 @@ void _assertSuccessOrBufferToSmall( IotSerializerError_t error )
 
 /*-----------------------------------------------------------*/
 
+static uint8_t _taskNameFilterIdle( const char * strA )
+{
+    uint8_t index = 0;
+    uint8_t retval = TASK_NAME_NOT_EQUAL;
+    char idleName[] = "IDLE";
+
+    /* The maximum length of task name string (NULL included) is defined in FreeRTOSConfig.h. */
+    for( index = 0; index < configMAX_TASK_NAME_LEN; index++ )
+    {
+        if( ( strA[ index ] == '\0' ) && ( idleName[ index ] == '\0' ) )
+        {
+            retval = TASK_NAME_EQUAL;
+            break;
+        }
+        else if( ( strA[ index ] == '\0' ) || ( idleName[ index ] == '\0' ) || ( strA[ index ] != idleName[ index ] ) )
+        {
+            break;
+        }
+    }
+
+    return retval;
+}
+
+/*-----------------------------------------------------------*/
+
 uint8_t * AwsIotDefenderInternal_GetReportBuffer( void )
 {
     return _report.pDataBuffer;
@@ -143,7 +174,7 @@ uint8_t * AwsIotDefenderInternal_GetReportBuffer( void )
 
 size_t AwsIotDefenderInternal_GetReportBufferSize( void )
 {
-    /* Encoder might over-calculate the needed size. Therefor encoded size might be smaller than buffer size: _report.size. */
+    /* Encoder might over-calculate the needed size. Therefore encoded size might be smaller than buffer size: _report.size. */
     return _report.pDataBuffer == NULL ? 0
            : _defenderEncoder.getEncodedSize( &_report.object, _report.pDataBuffer );
 }
@@ -444,7 +475,10 @@ static void _serializeKernelRuntimeStats( void * param1 )
     /* Read FreeRTOS task information. */
     /* todo: below needs to be moved to FreeRTOS abstraction. */
     UBaseType_t uxArraySize = uxTaskGetNumberOfTasks();
-    uint32_t ulTotalTime;
+
+    /* todo: below is uint32_t, but driver supports uint64_t. casting.*/
+    uint32_t ulTotalTime = 0;
+    uint32_t ulIdleTime = 0;
 
     TaskStatus_t * pxTaskStatusArray = pvPortMalloc( uxArraySize * sizeof( TaskStatus_t ) );
 
@@ -461,22 +495,11 @@ static void _serializeKernelRuntimeStats( void * param1 )
     void (* assertNoError)( IotSerializerError_t ) = _report.pDataBuffer == NULL ? _assertSuccessOrBufferToSmall
                                                      : _assertSuccess;
 
-    /* Create the "mcu_uptime" map with 1 key "established_connections" */
+    /* Create the "kernel_metrics" map. */
     serializerError = _defenderEncoder.openContainerWithKey( pMetricsObject,
                                                              KERNEL_METIRCS,
                                                              &mcuUptimeMap,
                                                              6 ); /* define macro */
-    assertNoError( serializerError );
-
-    /* mcu_uptime, mcu_utilization. */
-    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
-                                                       KERNEL_MCU_UPTIME,
-                                                       IotSerializer_ScalarSignedInt( ulTotalTime ) );
-    assertNoError( serializerError );
-
-    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
-                                                       KERNEL_MCU_UTILIZATION,
-                                                       IotSerializer_ScalarSignedInt( 100 ) ); /* mocked data */
     assertNoError( serializerError );
 
     /* free_heap_size, heap_low_watermark. */
@@ -496,14 +519,21 @@ static void _serializeKernelRuntimeStats( void * param1 )
                                                        IotSerializer_ScalarSignedInt( uxArraySize ) );
     assertNoError( serializerError );
 
-    /* task details. */
+
+    /* Task details.
+     * The ideal scenario is, all tasks fits into a report, which in reality will not always be the case.
+     * While in prototyping phase to not hit MTU, use short tags and see which is better:
+     * - have a sorting algorithm, and surface the most heavy loaded tasks.
+     * - surface the defined number of tasks.
+     * - surface a category of tasks. (e.g. only running and ready. )
+     */
     serializerError = _defenderEncoder.openContainerWithKey( &mcuUptimeMap,
                                                              KERNEL_TASK_DETAILS,
                                                              &taskDetailsArray,
-                                                             6 );
+                                                             uxArraySize );
     assertNoError( serializerError );
 
-    for( i = 0; i < 6; i++ )
+    for( i = 0; i < uxArraySize; i++ )
     {
         IotSerializerEncoderObject_t taskEntryMap = IOT_SERIALIZER_ENCODER_CONTAINER_INITIALIZER_MAP;
 
@@ -538,9 +568,17 @@ static void _serializeKernelRuntimeStats( void * param1 )
                                                            IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].ulRunTimeCounter ) );
         assertNoError( serializerError );
 
+        /* if idle, save the idle time counter. */
+        if( TASK_NAME_EQUAL == _taskNameFilterIdle( pxTaskStatusArray[ i ].pcTaskName ) )
+        {
+            ulIdleTime = pxTaskStatusArray[ i ].ulRunTimeCounter;
+        }
+
         serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
                                                            KERNEL_TASK_PERCENTAGE,
                                                            IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].ulRunTimeCounter / ( ulTotalTime / 100 ) ) );
+
+
         assertNoError( serializerError );
 
         serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
@@ -552,10 +590,23 @@ static void _serializeKernelRuntimeStats( void * param1 )
         assertNoError( serializerError );
     }
 
-    /* close all containers opened above. */
+    /* Close array container */
     serializerError = _defenderEncoder.closeContainer( &mcuUptimeMap, &taskDetailsArray );
     assertNoError( serializerError );
 
+    /* mcu_uptime, mcu_utilization. */
+    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                       KERNEL_MCU_UPTIME,
+                                                       IotSerializer_ScalarSignedInt( ulTotalTime ) );
+    assertNoError( serializerError );
+
+    /* Calculate for MCU utilization, given now we know how many cycles are spent in IDLE. */
+    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                       KERNEL_MCU_UTILIZATION,
+                                                       IotSerializer_ScalarSignedInt( ( ulTotalTime - ulIdleTime ) / ( ulTotalTime / 100 ) ) );
+    assertNoError( serializerError );
+
+    /* Close entire report. */
     serializerError = _defenderEncoder.closeContainer( pMetricsObject, &mcuUptimeMap );
     assertNoError( serializerError );
 }
