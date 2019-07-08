@@ -391,13 +391,18 @@ static void _metricsPublishRoutine( IotTaskPool_t pTaskPool,
             if( reportCreated )
             {
                 /* Step 4: publish report to defender topic. */
+            	size_t reportSize = AwsIotDefenderInternal_GetReportBufferSize();
                 mqttError = AwsIotDefenderInternal_MqttPublish( AwsIotDefenderInternal_GetReportBuffer(),
-                                                                AwsIotDefenderInternal_GetReportBufferSize() );
+                                                                reportSize );
 
                 if( mqttError == IOT_MQTT_SUCCESS )
                 {
                     IotLogDebug( "Metrics report has been published successfully." );
                 }
+            }
+            else
+            {
+            	IotLogError( "Failed to create report." );
             }
         }
     }
