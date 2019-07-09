@@ -300,7 +300,7 @@ static void _serialize( void )
     /* Append key-value pair of "version". */
     serializerError = _defenderEncoder.appendKeyValue( &headerMap,
                                                        VERSION_TAG,
-                                                       IotSerializer_ScalarTextString( VERSION_1_0 ) );
+                                                       IotSerializer_ScalarTextString( VERSION_1_1 ) );
     assertNoError( serializerError );
 
     /* Close the "header" map. */
