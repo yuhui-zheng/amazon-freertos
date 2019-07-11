@@ -201,7 +201,7 @@ extern uint16_t getDeviceMetricsLength( void );
 #define AWS_IOT_DEFENDER_FORMAT             AWS_IOT_DEFENDER_FORMAT_CBOR
 
 /* Configuration for defender demo: use long tag for readable output. Please use short tag for the real application. */
-#define AWS_IOT_DEFENDER_USE_LONG_TAG       ( 1 )
+#define AWS_IOT_DEFENDER_USE_LONG_TAG       ( 0 )
 
 /* Demo runner configuration. */
 #include "aws_demo_config.h"

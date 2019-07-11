@@ -53,7 +53,8 @@
 #define CONN_TAG                       AwsIotDefenderInternal_SelectTag( "connections", "cs" )
 #define REMOTE_ADDR_TAG                AwsIotDefenderInternal_SelectTag( "remote_addr", "rad" )
 
-/* Kernel metrics. */
+/* Kernel metrics.
+ * Prefixed with k (kernel), m (mcu), t (task), hp (hp), st (stack). */
 #define KERNEL_METIRCS                 AwsIotDefenderInternal_SelectTag( "kernel_metrics", "km" )
 #define KERNEL_MCU_UPTIME              AwsIotDefenderInternal_SelectTag( "mcu_uptime", "mupt" )
 #define KERNEL_MCU_UTILIZATION         AwsIotDefenderInternal_SelectTag( "mcu_utilization", "mpct" )
@@ -69,6 +70,10 @@
 #define KERNEL_TASK_ABS_CYCLES         AwsIotDefenderInternal_SelectTag( "task_abs_cycles", "tcyc" )
 #define KERNEL_TASK_PERCENTAGE         AwsIotDefenderInternal_SelectTag( "task_percentage", "tpct" )
 #define KERNEL_STACK_HIGH_WATERMARK    AwsIotDefenderInternal_SelectTag( "stack_high_watermark", "sthi" )
+
+/* Device type.
+ * Prefixed with d (device). */
+#define DEVICE_TYPE                    AwsIotDefenderInternal_SelectTag( "device_type", "dtp" )
 
 /* Return value for _taskNameFilterIdle(). */
 #define TASK_NAME_EQUAL                ( 1 )
@@ -499,7 +504,7 @@ static void _serializeKernelRuntimeStats( void * param1 )
     serializerError = _defenderEncoder.openContainerWithKey( pMetricsObject,
                                                              KERNEL_METIRCS,
                                                              &mcuUptimeMap,
-                                                             6 ); /* define macro */
+                                                             7 ); /* define macro */
     assertNoError( serializerError );
 
     /* free_heap_size, heap_low_watermark. */
@@ -517,6 +522,12 @@ static void _serializeKernelRuntimeStats( void * param1 )
     serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
                                                        KERNEL_NUM_OF_TASKS,
                                                        IotSerializer_ScalarSignedInt( uxArraySize ) );
+    assertNoError( serializerError );
+
+    /* device_type. */
+    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                       DEVICE_TYPE,
+                                                       IotSerializer_ScalarTextString( configPLATFORM_NAME ) );
     assertNoError( serializerError );
 
 
