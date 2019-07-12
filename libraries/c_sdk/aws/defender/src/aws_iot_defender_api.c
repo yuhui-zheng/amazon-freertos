@@ -32,6 +32,8 @@
 /* Clock include. */
 #include "platform/iot_clock.h"
 
+#include "aws_hal_perfcounter.h"
+
 #define WAIT_METRICS_JOB_MAX_SECONDS    ( 5 )
 
 #if WAIT_METRICS_JOB_MAX_SECONDS < AWS_IOT_DEFENDER_WAIT_SERVER_MAX_SECONDS
@@ -93,6 +95,11 @@ static bool _started = false;
 
 /* Internal copy of startInfo so that user's input doesn't have to be valid all the time. */
 AwsIotDefenderStartInfo_t _startInfo = AWS_IOT_DEFENDER_START_INFO_INITIALIZER;
+
+
+/* Local profiling. */
+volatile uint64_t ullPerfCounterStart = 0;
+volatile uint64_t ullPerfCounterEnd = 0;
 
 /*-----------------------------------------------------------*/
 
@@ -354,7 +361,10 @@ static void _metricsPublishRoutine( IotTaskPool_t pTaskPool,
     ( void ) pJob;
     ( void ) pUserContext;
 
-    IotLogDebug( "Metrics publish job starts." );
+
+    ullPerfCounterStart = aws_hal_perfcounter_get_value();
+
+    IotLogInfo( "Metrics publish job starts." );
 
     if( !IotSemaphore_TryWait( &_doneSem ) )
     {
@@ -391,7 +401,7 @@ static void _metricsPublishRoutine( IotTaskPool_t pTaskPool,
             if( reportCreated )
             {
                 /* Step 4: publish report to defender topic. */
-            	size_t reportSize = AwsIotDefenderInternal_GetReportBufferSize();
+                size_t reportSize = AwsIotDefenderInternal_GetReportBufferSize();
                 mqttError = AwsIotDefenderInternal_MqttPublish( AwsIotDefenderInternal_GetReportBuffer(),
                                                                 reportSize );
 
@@ -402,22 +412,23 @@ static void _metricsPublishRoutine( IotTaskPool_t pTaskPool,
             }
             else
             {
-            	IotLogError( "Failed to create report." );
+                IotLogError( "Failed to create report." );
             }
         }
     }
+
     /* If no MQTT error and report has been created, it indicates everything is good. */
     if( ( mqttError == IOT_MQTT_SUCCESS ) && reportCreated )
     {
         IotTaskPoolError_t taskPoolError = IotTaskPool_CreateJob( _disconnectRoutine, NULL, &_disconnectJobStorage, &_disconnectJob );
 
         /* Silence warnings when asserts are disabled. */
-        ( void ) taskPoolError;		
+        ( void ) taskPoolError;
         AwsIotDefender_Assert( taskPoolError == IOT_TASKPOOL_SUCCESS );
 
         IotTaskPool_ScheduleDeferred( IOT_SYSTEM_TASKPOOL,
                                       _disconnectJob,
-                                      _defenderToMilliseconds( AWS_IOT_DEFENDER_WAIT_SERVER_MAX_SECONDS ) );
+                                      0 );
     }
     else
     {
@@ -488,10 +499,10 @@ static void _disconnectRoutine( IotTaskPool_t pTaskPool,
     AwsIotDefenderInternal_MqttDisconnect();
     /* Re-create metrics job. */
     IotTaskPoolError_t taskPoolError = IotTaskPool_CreateJob( _metricsPublishRoutine, NULL, &_metricsPublishJobStorage, &_metricsPublishJob );
-	
+
     /* Silence warnings when asserts are disabled. */
     ( void ) taskPoolError;
-	
+
     AwsIotDefender_Assert( taskPoolError == IOT_TASKPOOL_SUCCESS );
 
     /* Re-schedule metrics job with period as deferred interval. */
@@ -500,7 +511,12 @@ static void _disconnectRoutine( IotTaskPool_t pTaskPool,
 
     IotSemaphore_Post( &_doneSem );
 
-    IotLogDebug( "Disconnect job ends." );
+    ullPerfCounterEnd = aws_hal_perfcounter_get_value();
+    IotLogInfo( "Disconnect job ends. Start time: %llu, end time: %llu, duration: %llu (cycles), duration: %llu (seconds)",
+                ullPerfCounterStart,
+                ullPerfCounterEnd,
+                ullPerfCounterEnd - ullPerfCounterStart,
+                ( ullPerfCounterEnd - ullPerfCounterStart ) / 100000 );
 }
 
 /*-----------------------------------------------------------*/
