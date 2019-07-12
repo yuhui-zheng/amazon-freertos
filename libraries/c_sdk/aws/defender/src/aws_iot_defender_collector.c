@@ -620,6 +620,9 @@ static void _serializeKernelRuntimeStats( void * param1 )
     /* Close entire report. */
     serializerError = _defenderEncoder.closeContainer( pMetricsObject, &mcuUptimeMap );
     assertNoError( serializerError );
+
+    /* Free memory. */
+    vPortFree(pxTaskStatusArray);
 }
 
 /*-----------------------------------------------------------*/
