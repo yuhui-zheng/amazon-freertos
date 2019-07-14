@@ -162,7 +162,7 @@ static void _defenderTask( void * param )
                                AWS_IOT_DEFENDER_METRICS_ALL );
 
     /* Set metrics report period to 5 minutes(300 seconds) */
-    AwsIotDefender_SetPeriod( 300 );
+    AwsIotDefender_SetPeriod( 30 );
 
     /* Start the defender agent. */
     _startDefender();
@@ -174,8 +174,16 @@ static void _defenderTask( void * param )
     SOCKETS_inet_ntoa( expectedIp, expectedIpBuffer );
     IotLogInfo( "expected ip: %s", expectedIpBuffer );
 
-    /* Let it run for 3 seconds */
-    IotClock_SleepMs( 3000 );
+
+    /* Let it run for ~10 hours.
+     * Our implementation converts ms to ticks, during which overflow may occur.
+     *
+     * IotClock_SleepMs() takes uint32_t, however the maximum delay this interface supports on STM32L475 port is ~71mins.
+     */
+    for (int i = 0; i < 10; i++)
+    {
+    	IotClock_SleepMs( 3600000 );
+    }
 
     /* Stop the defender agent. */
     AwsIotDefender_Stop();
