@@ -116,7 +116,7 @@ uint64_t IotClock_GetTimeMs( void );
 /**
  * @brief Delay for the given number of milliseconds.
  *
- * This function suspends its calling thread for at least `sleepTimeMs` milliseconds.
+ * This function suspends its calling thread for at most `sleepTimeMs` milliseconds.
  *
  * @param[in] sleepTimeMs Sleep time (in milliseconds).
  */
