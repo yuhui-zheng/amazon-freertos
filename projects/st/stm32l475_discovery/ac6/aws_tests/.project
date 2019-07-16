@@ -841,14 +841,14 @@
 			<locationURI>AWS_IOT_MCU_ROOT/libraries/3rdparty/unity/src/unity_internals.h</locationURI>
 		</link>
 		<link>
-			<name>libraries/abstractions/hal/include/aws_hal_perfcounter.h</name>
+			<name>libraries/abstractions/hal/include/iot_perfcounter.h</name>
 			<type>1</type>
-			<locationURI>AWS_IOT_MCU_ROOT/libraries/abstractions/hal/include/aws_hal_perfcounter.h</locationURI>
+			<locationURI>AWS_IOT_MCU_ROOT/libraries/abstractions/hal/include/iot_perfcounter.h</locationURI>
 		</link>
 		<link>
-			<name>libraries/abstractions/hal/test/aws_test_hal_perfcounter.c</name>
+			<name>libraries/abstractions/hal/test/iot_test_perfcounter.c</name>
 			<type>1</type>
-			<locationURI>AWS_IOT_MCU_ROOT/libraries/abstractions/hal/test/aws_test_hal_perfcounter.c</locationURI>
+			<locationURI>AWS_IOT_MCU_ROOT/libraries/abstractions/hal/test/iot_test_perfcounter.c</locationURI>
 		</link>
 		<link>
 			<name>libraries/abstractions/pkcs11/include/iot_pkcs11.h</name>
@@ -1271,16 +1271,12 @@
 			<locationURI>AWS_IOT_MCU_ROOT/libraries/3rdparty/mbedtls/include/mbedtls/oid.h</locationURI>
 		</link>
 		<link>
-<<<<<<< HEAD
 			<name>libraries/c_sdk/standard/common/iot_device_metrics.c</name>
 			<type>1</type>
 			<locationURI>AWS_IOT_MCU_ROOT/libraries/c_sdk/standard/common/iot_device_metrics.c</locationURI>
 		</link>
 		<link>
 			<name>libraries/c_sdk/standard/common/taskpool/iot_taskpool.c</name>
-=======
-			<name>libraries/3rdparty/mbedtls/include/mbedtls/padlock.h</name>
->>>>>>> ST perf counter driver.
 			<type>1</type>
 			<locationURI>AWS_IOT_MCU_ROOT/libraries/3rdparty/mbedtls/include/mbedtls/padlock.h</locationURI>
 		</link>
@@ -1598,11 +1594,6 @@
 			<name>libraries/c_sdk/standard/mqtt/src/iot_mqtt_api.c</name>
 			<type>1</type>
 			<locationURI>AWS_IOT_MCU_ROOT/libraries/c_sdk/standard/mqtt/src/iot_mqtt_api.c</locationURI>
-		</link>
-		<link>
-			<name>libraries/c_sdk/standard/mqtt/src/iot_mqtt_metrics.c</name>
-			<type>1</type>
-			<locationURI>AWS_IOT_MCU_ROOT/libraries/c_sdk/standard/mqtt/src/iot_mqtt_metrics.c</locationURI>
 		</link>
 		<link>
 			<name>libraries/c_sdk/standard/mqtt/src/iot_mqtt_network.c</name>
@@ -2505,9 +2496,9 @@
 			<locationURI>AWS_IOT_MCU_ROOT/libraries/c_sdk/standard/serializer/src/json/iot_serializer_json_encoder.c</locationURI>
 		</link>
 		<link>
-			<name>vendors/st/boards/stm32l475_discovery/ports/hal/aws_hal_perfcounter.c</name>
+			<name>vendors/st/boards/stm32l475_discovery/ports/hal/iot_perfcounter.c</name>
 			<type>1</type>
-			<locationURI>AWS_IOT_MCU_ROOT/vendors/st/boards/stm32l475_discovery/ports/hal/aws_hal_perfcounter.c</locationURI>
+			<locationURI>AWS_IOT_MCU_ROOT/vendors/st/boards/stm32l475_discovery/ports/hal/iot_perfcounter.c</locationURI>
 		</link>
 		<link>
 			<name>vendors/st/boards/stm32l475_discovery/ports/pkcs11/iot_pkcs11_pal.c</name>

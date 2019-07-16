@@ -39,7 +39,7 @@
 #include "task.h"
 
 /* Driver includes */
-#include "aws_hal_perfcounter.h"
+#include "iot_perfcounter.h"
 
 /*-----------------------------------------------------------*/
 
@@ -85,7 +85,7 @@ TEST_GROUP_RUNNER( AWS_HAL_PERFCOUNTER_TEST )
 /*-----------------------------------------------------------*/
 
 /**
- * @brief Test Function to test aws_hal_perfcounter values
+ * @brief Test Function to test iot_perfcounter values
  *
  */
 TEST( AWS_HAL_PERFCOUNTER_TEST, AFQP_AwsHalPerfCounterGetValue )
@@ -93,16 +93,16 @@ TEST( AWS_HAL_PERFCOUNTER_TEST, AFQP_AwsHalPerfCounterGetValue )
     uint64_t ullCounter1 = 0, ullCounter2 = 0;
 
     /* Open the interface. */
-    aws_hal_perfcounter_open();
+    iot_perfcounter_open();
 
     /* Get the value from perf counter. */
-    ullCounter1 = aws_hal_perfcounter_get_value();
+    ullCounter1 = iot_perfcounter_get_value();
 
     /* This is always true. Attempting to space out two reads. */
     TEST_ASSERT( ullCounter1 >= 0 );
 
     /* Get the value from perf counter again. */
-    ullCounter2 = aws_hal_perfcounter_get_value();
+    ullCounter2 = iot_perfcounter_get_value();
 
     /* For reference, to overflow 64-bit with clock running at say GHz, it takes years.
      * By when it's probably better to fail the test if it takes that long.
@@ -111,13 +111,13 @@ TEST( AWS_HAL_PERFCOUNTER_TEST, AFQP_AwsHalPerfCounterGetValue )
     TEST_ASSERT_MESSAGE( ullCounter2 >= ullCounter1, "The value from the second read is expected to be no smaller than the first." );
 
     /* Close the interface. */
-    aws_hal_perfcounter_close();
+    iot_perfcounter_close();
 }
 
 /*-----------------------------------------------------------*/
 
 /**
- * @brief Test Function to test aws_hal_perfcounter values with delay inserted.
+ * @brief Test Function to test iot_perfcounter values with delay inserted.
  * The delay is used to calculate the next read of perfcounter shall be no smaller than
  * the delay inserted.
  *
@@ -128,19 +128,19 @@ TEST( AWS_HAL_PERFCOUNTER_TEST, AFQP_AwsHalPerfCounterGetValueWithDelay )
     uint32_t ulFreq = 0;
 
     /* Open the interface. */
-    aws_hal_perfcounter_open();
+    iot_perfcounter_open();
 
     /* Get counter frequency. */
-    ulFreq = aws_hal_perfcounter_get_frequency_hz();
+    ulFreq = iot_perfcounter_get_frequency_hz();
 
     /* Get the value from perf counter. */
-    ullCounter1 = aws_hal_perfcounter_get_value();
+    ullCounter1 = iot_perfcounter_get_value();
 
     /* Delay for AT MOST 1 msec. (Assume no interrupt.) */
     vTaskDelay( aws_halperfcountertestDEFAULT_DELAY_TIME_MS / portTICK_PERIOD_MS );
 
     /* Get the value from perf counter again. */
-    ullCounter2 = aws_hal_perfcounter_get_value();
+    ullCounter2 = iot_perfcounter_get_value();
 
     /* Test has been running for a while now. Reading should not be zero.
      * If fails --
@@ -168,5 +168,5 @@ TEST( AWS_HAL_PERFCOUNTER_TEST, AFQP_AwsHalPerfCounterGetValueWithDelay )
     TEST_ASSERT_MESSAGE( ( ullCounter2 > ullCounter1 ), "Expected the value from the second read to be larger than the first. " );
 
     /* Close the interface. */
-    aws_hal_perfcounter_close();
+    iot_perfcounter_close();
 }

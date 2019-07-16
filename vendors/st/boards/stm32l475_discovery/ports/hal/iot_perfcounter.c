@@ -25,7 +25,7 @@
  */
 
 /**
- * @file aws_hal_perf_cntr.c
+ * @file iot_perfcounter.c
  * @brief File of the implementation for performance counter APIs calling STM drivers.
  */
 
@@ -33,7 +33,7 @@
 
 /* API definition to be implemented in this file. */
 #include "FreeRTOS.h"
-#include "aws_hal_perfcounter.h"
+#include "iot_perfcounter.h"
 
 /* ST HAL APIs to be called in this file. */
 #include "stm32l4xx_hal.h"
@@ -146,7 +146,7 @@ void TIM5_IRQHandler( void )
 }
 /*-----------------------------------------------------------*/
 
-void aws_hal_perfcounter_open( void )
+void iot_perfcounter_open( void )
 {
     uint32_t ulTimClock = 0;
 
@@ -203,7 +203,7 @@ void aws_hal_perfcounter_open( void )
 
 /*-----------------------------------------------------------*/
 
-void aws_hal_perfcounter_close( void )
+void iot_perfcounter_close( void )
 {
     HAL_TIM_Base_Stop_IT( &xTimerHandle );
 
@@ -212,7 +212,7 @@ void aws_hal_perfcounter_close( void )
 
 /*-----------------------------------------------------------*/
 
-uint64_t aws_hal_perfcounter_get_value( void )
+uint64_t iot_perfcounter_get_value( void )
 {
     UBaseType_t uxCriticalSectionType = portSET_INTERRUPT_MASK_FROM_ISR();
 
@@ -225,7 +225,7 @@ uint64_t aws_hal_perfcounter_get_value( void )
 
 /*-----------------------------------------------------------*/
 
-uint32_t aws_hal_perfcounter_get_frequency_hz( void )
+uint32_t iot_perfcounter_get_frequency_hz( void )
 {
     uint32_t ulTimClock = 0;
 
