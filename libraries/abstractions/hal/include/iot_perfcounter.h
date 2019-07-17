@@ -72,4 +72,10 @@ uint64_t iot_perfcounter_get_value( void );
  */
 uint32_t iot_perfcounter_get_frequency_hz( void );
 
+
+/**
+ * @brief Reset counter value to zero.
+ */
+void iot_perfcounter_zero_out( void );
+
 #endif /* _IOT_PERFCOUNTER_H_ */
