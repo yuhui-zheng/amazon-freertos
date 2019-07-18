@@ -226,6 +226,14 @@ target_include_directories(
        "${AFR_MODULES_FREERTOS_PLUS_DIR}/standard/crypto/include"
 )
 
+# HAL
+afr_mcu_port(hal)
+target_sources(
+    AFR::hal::mcu_port
+    INTERFACE "${afr_ports_dir}/hal/iot_perfcounter.c"
+)
+
+
 # -------------------------------------------------------------------------------------------------
 # Amazon FreeRTOS demos and tests
 # -------------------------------------------------------------------------------------------------
