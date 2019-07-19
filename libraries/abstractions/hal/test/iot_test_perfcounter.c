@@ -80,6 +80,9 @@ TEST_GROUP_RUNNER( AWS_HAL_PERFCOUNTER_TEST )
 {
     RUN_TEST_CASE( AWS_HAL_PERFCOUNTER_TEST, AFQP_AwsHalPerfCounterGetValue );
     RUN_TEST_CASE( AWS_HAL_PERFCOUNTER_TEST, AFQP_AwsHalPerfCounterGetValueWithDelay );
+
+    /* Manually poke this case. */
+    /*RUN_TEST_CASE( AWS_HAL_PERFCOUNTER_TEST, manual_test_check_register ); */
 }
 
 /*-----------------------------------------------------------*/
@@ -166,6 +169,48 @@ TEST( AWS_HAL_PERFCOUNTER_TEST, AFQP_AwsHalPerfCounterGetValueWithDelay )
      * See comment in previous test.
      */
     TEST_ASSERT_MESSAGE( ( ullCounter2 > ullCounter1 ), "Expected the value from the second read to be larger than the first. " );
+
+    /* Close the interface. */
+    iot_perfcounter_close();
+}
+
+/*-----------------------------------------------------------*/
+
+/**
+ * @brief manual test to help poking register values.
+ *
+ */
+TEST( AWS_HAL_PERFCOUNTER_TEST, manual_test_check_register )
+{
+    uint64_t ullCounter1 = 0, ullCounter2 = 0;
+    uint64_t ullCounterDiff = 0;
+    uint32_t ulFreq = 0;
+    const TickType_t xDelay = 1000 / portTICK_PERIOD_MS; /* 1 second */
+
+    /* Open the interface. */
+    iot_perfcounter_open();
+
+    /* Get perf counter frequency. */
+    ulFreq = iot_perfcounter_get_frequency_hz();
+    configPRINTF( ( "frequency: %lu\r\n", ulFreq ) );
+
+    /* put it in a loop, that we can manually try things a bit. */
+    for( uint8_t i = 0; i < 20; i++ )
+    {
+        /* Get the value from perf counter. */
+        ullCounter1 = iot_perfcounter_get_value();
+
+        /* Sleep. Note that FreeRTOS sleeps for AT MOST the time you specify. */
+        vTaskDelay( xDelay );
+
+        /* Get the value from perf counter again. */
+        ullCounter2 = iot_perfcounter_get_value();
+
+        /* Check sleep function is "at most" or "at least".
+         * assume no overflow. */
+        ullCounterDiff = ullCounter2 - ullCounter1;
+        configPRINTF( ( "start: %llu, end: %llu, diff: %llu\r\n", ullCounter1, ullCounter2, ullCounterDiff ) );
+    }
 
     /* Close the interface. */
     iot_perfcounter_close();
