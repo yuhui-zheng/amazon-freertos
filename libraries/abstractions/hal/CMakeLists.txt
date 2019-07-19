@@ -5,7 +5,7 @@ set(test_dir "${CMAKE_CURRENT_LIST_DIR}/test")
 
 afr_module_sources(
     ${AFR_CURRENT_MODULE}
-    PRIVATE 
+    INTERFACE 
         "${inc_dir}/iot_perfcounter.h"
 )
 

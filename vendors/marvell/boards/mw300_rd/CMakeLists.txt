@@ -176,8 +176,14 @@ set(
 
 # Global include directories
 target_include_directories(
-     AFR::kernel::mcu_port
-     INTERFACE ${kernel_inc_directories}
+    AFR::kernel::mcu_port
+    INTERFACE 
+        ${kernel_inc_directories}
+)
+
+target_link_libraries(
+    AFR::kernel::mcu_port
+    INTERFACE AFR::hal
 )
 
 # WiFi
