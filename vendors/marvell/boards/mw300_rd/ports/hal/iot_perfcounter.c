@@ -95,13 +95,13 @@ static uint32_t ulTimerOverflow = 0;
  * Assume GPT0 is used. If GPT_COUNTER_ID is not GPT0_ID,
  * please override the specific IRQ handler you are using.
  */
-void GPT0_IRQHandler( void )
+void GPT0_IRQHandler_Overflow( void )
 {
     ++ulTimerOverflow;
 }
 
 /* Override weak pragma. */
-#define GPT0_IRQHandler    GPT0_IRQHandler
+#define GPT0_IRQHandler    GPT0_IRQHandler_Overflow
 
 /*-----------------------------------------------------------*/
 

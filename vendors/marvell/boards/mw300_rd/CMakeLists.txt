@@ -262,6 +262,7 @@ target_link_libraries(
     ${exe_target}
     PRIVATE
         AFR::utils
+        AFR::hal
         ${default_modules}
         -T${global-linkerscript-y}
 )

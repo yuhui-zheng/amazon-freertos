@@ -5,7 +5,8 @@ set(test_dir "${CMAKE_CURRENT_LIST_DIR}/test")
 
 afr_module_sources(
     ${AFR_CURRENT_MODULE}
-    PRIVATE "${inc_dir}/iot_perfcounter.h"
+    PRIVATE 
+        "${inc_dir}/iot_perfcounter.h"
 )
 
 afr_module_include_dirs(
@@ -15,6 +16,18 @@ afr_module_include_dirs(
 
 afr_module_dependencies(
     ${AFR_CURRENT_MODULE}
-    PRIVATE
-        AFR::${AFR_CURRENT_MODULE}::mcu_port
+    PRIVATE AFR::hal::mcu_port
+)
+
+# HAL test
+afr_test_module()
+afr_module_sources(
+    ${AFR_CURRENT_MODULE}
+    INTERFACE
+        "${test_dir}/iot_test_perfcounter.c"
+)
+afr_module_dependencies(
+    ${AFR_CURRENT_MODULE}
+    INTERFACE
+        AFR::hal
 )
