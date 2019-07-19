@@ -43,7 +43,7 @@
 #define  HEADER_TAG                     AwsIotDefenderInternal_SelectTag( "header", "hed" )
 #define  REPORTID_TAG                   AwsIotDefenderInternal_SelectTag( "report_id", "rid" )
 #define  VERSION_TAG                    AwsIotDefenderInternal_SelectTag( "version", "v" )
-#define  VERSION_1_0                    "1.0" /* Used by defender service to indicate the schema change of report, e.g. adding new field. */
+#define  VERSION_1_0                    "1.0"   /* Used by defender service to indicate the schema change of report, e.g. adding new field. */
 #define  VERSION_1_1                    "1.1"
 #define  METRICS_TAG                    AwsIotDefenderInternal_SelectTag( "metrics", "met" )
 
@@ -83,9 +83,26 @@
  * Prefixed with d (device). */
 #define DEVICE_TYPE                     AwsIotDefenderInternal_SelectTag( "device_type", "dtp" )
 
+/* Magic numbers. */
+#if ( configDefenderReportHeapStats == 1 )
+    #define MAGIC_NUMBER_HEAP_STATS    ( 7 )      /* If heap metrics group is enabled by user. */
+#else
+    #define MAGIC_NUMBER_HEAP_STATS    ( 0 )
+#endif /* configDefenderReportHeapStats */
+
+#if ( configDefenderReportRuntimeStats == 1 )
+    #define MAGIC_NUMBER_RUNTIME_STATS    ( 3 )   /* If runtime stats metrics group is enabled by user. */
+#else
+    #define MAGIC_NUMBER_RUNTIME_STATS    ( 0 )
+#endif /* configDefenderReportRuntimeStats */
+
+#define MAGIC_NUMBER_METRICS_DEFAULT      ( 2 )   /* device_type and num_of_tasks are always enabled. */
+
+#define MAGIC_NUMBER_TOTAL                ( MAGIC_NUMBER_HEAP_STATS + MAGIC_NUMBER_RUNTIME_STATS + MAGIC_NUMBER_METRICS_DEFAULT )
+
 /* Return value for _taskNameFilterIdle(). */
-#define TASK_NAME_EQUAL                 ( 1 )
-#define TASK_NAME_NOT_EQUAL             ( 0 )
+#define TASK_NAME_EQUAL                   ( 1 )
+#define TASK_NAME_NOT_EQUAL               ( 0 )
 
 /**
  * Structure to hold a metrics report.
@@ -485,20 +502,6 @@ static void _serializeTcpConnections( void * param1,
 
 static void _serializeKernelRuntimeStats( void * param1 )
 {
-    /* Read FreeRTOS task information. */
-    /* todo: below needs to be moved to FreeRTOS abstraction. */
-    UBaseType_t uxArraySize = uxTaskGetNumberOfTasks();
-
-    /* todo: below is uint32_t, but driver supports uint64_t. casting.*/
-    uint32_t ulTotalTime = 0;
-    uint32_t ulIdleTime = 0;
-
-    TaskStatus_t * pxTaskStatusArray = pvPortMalloc( uxArraySize * sizeof( TaskStatus_t ) );
-    HeapStats_t * pxHeapStatus = pvPortMalloc( sizeof( HeapStats_t ) );
-
-    uxArraySize = uxTaskGetSystemState( pxTaskStatusArray, uxArraySize, &ulTotalTime );
-    vPortGetHeapStats( pxHeapStatus );
-
     /* todo: unnecessary opaque type within the same file. pass in the right type of pointer. */
     IotSerializerEncoderObject_t * pMetricsObject = ( IotSerializerEncoderObject_t * ) param1;
     IotSerializerEncoderObject_t mcuUptimeMap = IOT_SERIALIZER_ENCODER_CONTAINER_INITIALIZER_MAP;
@@ -507,6 +510,29 @@ static void _serializeKernelRuntimeStats( void * param1 )
     IotSerializerError_t serializerError = IOT_SERIALIZER_SUCCESS;
     int i = 0;
 
+    /********* todo: below needs to be moved to FreeRTOS abstraction. *********/
+    /* Read FreeRTOS task information. */
+    UBaseType_t uxArraySize = uxTaskGetNumberOfTasks();
+
+    #if ( configDefenderReportRuntimeStats == 1 )
+        /* todo: below is uint32_t, but driver supports uint64_t. casting.*/
+        uint32_t ulTotalTime = 0;
+        uint32_t ulIdleTime = 0;
+
+        TaskStatus_t * pxTaskStatusArray = pvPortMalloc( uxArraySize * sizeof( TaskStatus_t ) );
+
+        /* todo -- check alloc status. If fails, do not attach runtime stats to this report. */
+        uxArraySize = uxTaskGetSystemState( pxTaskStatusArray, uxArraySize, &ulTotalTime );
+    #endif /* configDefenderReportRuntimeStats */
+
+    #if ( configDefenderReportHeapStats == 1 )
+        HeapStats_t * pxHeapStatus = pvPortMalloc( sizeof( HeapStats_t ) );
+
+        /* todo -- check alloc results. If fails, do not attach heap stats to this report. */
+        vPortGetHeapStats( pxHeapStatus );
+    #endif /* configDefenderReportHeapStats */
+    /********* todo: Above needs to be moved to FreeRTOS abstraction. *********/
+
     void (* assertNoError)( IotSerializerError_t ) = _report.pDataBuffer == NULL ? _assertSuccessOrBufferToSmall
                                                      : _assertSuccess;
 
@@ -514,7 +540,7 @@ static void _serializeKernelRuntimeStats( void * param1 )
     serializerError = _defenderEncoder.openContainerWithKey( pMetricsObject,
                                                              KERNEL_METIRCS,
                                                              &mcuUptimeMap,
-                                                             12 ); /* define macro */
+                                                             MAGIC_NUMBER_TOTAL );
     assertNoError( serializerError );
 
     /* heap_free_size
@@ -524,40 +550,42 @@ static void _serializeKernelRuntimeStats( void * param1 )
      * heap_low_watermark
      * heap_succ_alloc
      * heap_succ_free */
-    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
-                                                       KERNEL_HEAP_FREE_SIZE,
-                                                       IotSerializer_ScalarSignedInt( pxHeapStatus->xAvailableHeapSpaceInBytes ) );
-    assertNoError( serializerError );
+    #if ( configDefenderReportHeapStats == 1 )
+        serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                           KERNEL_HEAP_FREE_SIZE,
+                                                           IotSerializer_ScalarSignedInt( pxHeapStatus->xAvailableHeapSpaceInBytes ) );
+        assertNoError( serializerError );
 
-    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
-                                                       KERNEL_HEAP_LARGEST_FREE,
-                                                       IotSerializer_ScalarSignedInt( pxHeapStatus->xSizeOfLargestFreeBlockInBytes ) );
-    assertNoError( serializerError );
+        serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                           KERNEL_HEAP_LARGEST_FREE,
+                                                           IotSerializer_ScalarSignedInt( pxHeapStatus->xSizeOfLargestFreeBlockInBytes ) );
+        assertNoError( serializerError );
 
-    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
-                                                       KERNEL_HEAP_SMALLEST_FREE,
-                                                       IotSerializer_ScalarSignedInt( pxHeapStatus->xSizeOfSmallestFreeBlockInBytes ) );
-    assertNoError( serializerError );
+        serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                           KERNEL_HEAP_SMALLEST_FREE,
+                                                           IotSerializer_ScalarSignedInt( pxHeapStatus->xSizeOfSmallestFreeBlockInBytes ) );
+        assertNoError( serializerError );
 
-    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
-                                                       KERNEL_HEAP_NUM_OF_FREE,
-                                                       IotSerializer_ScalarSignedInt( pxHeapStatus->xNumberOfFreeBlocks ) );
-    assertNoError( serializerError );
+        serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                           KERNEL_HEAP_NUM_OF_FREE,
+                                                           IotSerializer_ScalarSignedInt( pxHeapStatus->xNumberOfFreeBlocks ) );
+        assertNoError( serializerError );
 
-    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
-                                                       KERNEL_HEAP_LOW_WATERMARK,
-                                                       IotSerializer_ScalarSignedInt( pxHeapStatus->xMinimumEverFreeBytesRemaining ) );
-    assertNoError( serializerError );
+        serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                           KERNEL_HEAP_LOW_WATERMARK,
+                                                           IotSerializer_ScalarSignedInt( pxHeapStatus->xMinimumEverFreeBytesRemaining ) );
+        assertNoError( serializerError );
 
-    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
-                                                       KERNEL_HEAP_SUCCESSFUL_ALLOC,
-                                                       IotSerializer_ScalarSignedInt( pxHeapStatus->xNumberOfSuccessfulAllocations ) );
-    assertNoError( serializerError );
+        serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                           KERNEL_HEAP_SUCCESSFUL_ALLOC,
+                                                           IotSerializer_ScalarSignedInt( pxHeapStatus->xNumberOfSuccessfulAllocations ) );
+        assertNoError( serializerError );
 
-    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
-                                                       KERNEL_HEAP_SUCCESSFUL_FREE,
-                                                       IotSerializer_ScalarSignedInt( pxHeapStatus->xNumberOfSuccessfulFrees ) );
-    assertNoError( serializerError );
+        serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                           KERNEL_HEAP_SUCCESSFUL_FREE,
+                                                           IotSerializer_ScalarSignedInt( pxHeapStatus->xNumberOfSuccessfulFrees ) );
+        assertNoError( serializerError );
+    #endif /* configDefenderReportHeapStats */
 
     /* num_of_tasks. */
     serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
@@ -579,92 +607,99 @@ static void _serializeKernelRuntimeStats( void * param1 )
      * - surface the defined number of tasks.
      * - surface a category of tasks. (e.g. only running and ready. )
      */
-    serializerError = _defenderEncoder.openContainerWithKey( &mcuUptimeMap,
-                                                             KERNEL_TASK_DETAILS,
-                                                             &taskDetailsArray,
-                                                             uxArraySize );
-    assertNoError( serializerError );
-
-    for( i = 0; i < uxArraySize; i++ )
-    {
-        IotSerializerEncoderObject_t taskEntryMap = IOT_SERIALIZER_ENCODER_CONTAINER_INITIALIZER_MAP;
-
-        serializerError = _defenderEncoder.openContainer( &taskDetailsArray,
-                                                          &taskEntryMap,
-                                                          7 ); /* define macro. */
+    #if ( configDefenderReportRuntimeStats == 1 )
+        serializerError = _defenderEncoder.openContainerWithKey( &mcuUptimeMap,
+                                                                 KERNEL_TASK_DETAILS,
+                                                                 &taskDetailsArray,
+                                                                 uxArraySize );
         assertNoError( serializerError );
 
-        /* task_id, task_name, task_status, task_priority, task_abs_cycles, task_percentage, stack_high_watermark. */
-        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
-                                                           KERNEL_TASK_ID,
-                                                           IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].xTaskNumber ) );
-        assertNoError( serializerError );
-
-        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
-                                                           KERNEL_TASK_NAME,
-                                                           IotSerializer_ScalarTextString( pxTaskStatusArray[ i ].pcTaskName ) );
-        assertNoError( serializerError );
-
-        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
-                                                           KERNEL_TASK_STATUS,
-                                                           IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].eCurrentState ) );
-        assertNoError( serializerError );
-
-        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
-                                                           KERNEL_TASK_PRIORITY,
-                                                           IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].uxCurrentPriority ) );
-        assertNoError( serializerError );
-
-        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
-                                                           KERNEL_TASK_ABS_CYCLES,
-                                                           IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].ulRunTimeCounter ) );
-        assertNoError( serializerError );
-
-        /* if idle, save the idle time counter. */
-        if( TASK_NAME_EQUAL == _taskNameFilterIdle( pxTaskStatusArray[ i ].pcTaskName ) )
+        for( i = 0; i < uxArraySize; i++ )
         {
-            ulIdleTime = pxTaskStatusArray[ i ].ulRunTimeCounter;
+            IotSerializerEncoderObject_t taskEntryMap = IOT_SERIALIZER_ENCODER_CONTAINER_INITIALIZER_MAP;
+
+            serializerError = _defenderEncoder.openContainer( &taskDetailsArray,
+                                                              &taskEntryMap,
+                                                              7 ); /* define macro. */
+            assertNoError( serializerError );
+
+            /* task_id, task_name, task_status, task_priority, task_abs_cycles, task_percentage, stack_high_watermark. */
+            serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                               KERNEL_TASK_ID,
+                                                               IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].xTaskNumber ) );
+            assertNoError( serializerError );
+
+            serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                               KERNEL_TASK_NAME,
+                                                               IotSerializer_ScalarTextString( pxTaskStatusArray[ i ].pcTaskName ) );
+            assertNoError( serializerError );
+
+            serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                               KERNEL_TASK_STATUS,
+                                                               IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].eCurrentState ) );
+            assertNoError( serializerError );
+
+            serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                               KERNEL_TASK_PRIORITY,
+                                                               IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].uxCurrentPriority ) );
+            assertNoError( serializerError );
+
+            serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                               KERNEL_TASK_ABS_CYCLES,
+                                                               IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].ulRunTimeCounter ) );
+            assertNoError( serializerError );
+
+            /* if idle, save the idle time counter. */
+            if( TASK_NAME_EQUAL == _taskNameFilterIdle( pxTaskStatusArray[ i ].pcTaskName ) )
+            {
+                ulIdleTime = pxTaskStatusArray[ i ].ulRunTimeCounter;
+            }
+
+            serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                               KERNEL_TASK_PERCENTAGE,
+                                                               IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].ulRunTimeCounter / ( ulTotalTime / 100 ) ) );
+
+
+            assertNoError( serializerError );
+
+            serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
+                                                               KERNEL_STACK_HIGH_WATERMARK,
+                                                               IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].usStackHighWaterMark ) );
+            assertNoError( serializerError );
+
+            serializerError = _defenderEncoder.closeContainer( &taskDetailsArray, &taskEntryMap );
+            assertNoError( serializerError );
         }
 
-        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
-                                                           KERNEL_TASK_PERCENTAGE,
-                                                           IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].ulRunTimeCounter / ( ulTotalTime / 100 ) ) );
-
-
+        /* Close array container */
+        serializerError = _defenderEncoder.closeContainer( &mcuUptimeMap, &taskDetailsArray );
         assertNoError( serializerError );
 
-        serializerError = _defenderEncoder.appendKeyValue( &taskEntryMap,
-                                                           KERNEL_STACK_HIGH_WATERMARK,
-                                                           IotSerializer_ScalarSignedInt( pxTaskStatusArray[ i ].usStackHighWaterMark ) );
+        /* mcu_uptime, mcu_utilization. */
+        serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                           KERNEL_MCU_UPTIME,
+                                                           IotSerializer_ScalarSignedInt( ulTotalTime ) );
         assertNoError( serializerError );
 
-        serializerError = _defenderEncoder.closeContainer( &taskDetailsArray, &taskEntryMap );
+        /* Calculate for MCU utilization, given now we know how many cycles are spent in IDLE. */
+        serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
+                                                           KERNEL_MCU_UTILIZATION,
+                                                           IotSerializer_ScalarSignedInt( ( ulTotalTime - ulIdleTime ) / ( ulTotalTime / 100 ) ) );
         assertNoError( serializerError );
-    }
-
-    /* Close array container */
-    serializerError = _defenderEncoder.closeContainer( &mcuUptimeMap, &taskDetailsArray );
-    assertNoError( serializerError );
-
-    /* mcu_uptime, mcu_utilization. */
-    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
-                                                       KERNEL_MCU_UPTIME,
-                                                       IotSerializer_ScalarSignedInt( ulTotalTime ) );
-    assertNoError( serializerError );
-
-    /* Calculate for MCU utilization, given now we know how many cycles are spent in IDLE. */
-    serializerError = _defenderEncoder.appendKeyValue( &mcuUptimeMap,
-                                                       KERNEL_MCU_UTILIZATION,
-                                                       IotSerializer_ScalarSignedInt( ( ulTotalTime - ulIdleTime ) / ( ulTotalTime / 100 ) ) );
-    assertNoError( serializerError );
+    #endif /* configDefenderReportRuntimeStats */
 
     /* Close entire report. */
     serializerError = _defenderEncoder.closeContainer( pMetricsObject, &mcuUptimeMap );
     assertNoError( serializerError );
 
     /* Free memory. */
-    vPortFree( pxTaskStatusArray );
-    vPortFree( pxHeapStatus );
+    #if ( configDefenderReportRuntimeStats == 1 )
+        vPortFree( pxTaskStatusArray );
+    #endif /* configDefenderReportRuntimeStats */
+
+    #if ( configDefenderReportHeapStats == 1 )
+        vPortFree( pxHeapStatus );
+    #endif /* configDefenderReportHeapStats */
 }
 
 /*-----------------------------------------------------------*/
