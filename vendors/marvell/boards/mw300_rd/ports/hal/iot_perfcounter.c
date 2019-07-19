@@ -53,19 +53,18 @@
 /**
  * @brief Maximum performance counter frequency.
  *
- * Maximum frequency for APB1 is 80MHz. Kernel needs to serve and overflow
- * IRQ in each ~53.6870s.
+ *  SFLL generates a maximum of 200 MHz clock.
  */
-#define PERF_COUNTER_FREQ_MAX        ( 80000000 )
+#define PERF_COUNTER_FREQ_MAX        ( 200000000 )
 
 /**
  * User suggested performance counter frequency.
  *
  * @warning The value of configHAL_PERF_COUNTER_FREQ needs to be smaller than
- * TIM clock.
+ * counter clock.
  *
- * @warning TIM prescaler only takes integer. configHAL_PERF_COUNTER_FREQ can
- * be any value, but prescaler is (uint32_t)(PCLK1 frequency / configHAL_PERF_COUNTER_FREQ).
+ * @warning prescaler only takes integer. configHAL_PERF_COUNTER_FREQ can
+ * be any value, but prescaler is (uint32_t)(SFLL frequency / configHAL_PERF_COUNTER_FREQ) - 1.
  */
 #ifdef configHAL_PERF_COUNTER_FREQ
     #define HAL_PERF_COUNTER_FREQ    ( configHAL_PERF_COUNTER_FREQ )
@@ -76,13 +75,12 @@
 /**
  * @brief Timer width, counter period, and loading value.
  */
-#define HW_TIMER_32_WIDTH            ( sizeof( uint32_t ) * 8 )
-#define HW_TIMER_32_CONST_PERIOD     ( UINT32_MAX )
-#define HW_TIMER_32_LOADING_VALUE    ( 0x0UL )
+#define HW_TIMER_32_WIDTH           ( sizeof( uint32_t ) * 8 )
+#define HW_TIMER_32_CONST_PERIOD    ( UINT32_MAX )
 
 /* MW320 has 2 GPT. MW322 has 4 GPT. Use GPT0 for simplicity. */
-#define GPT_COUNTER_ID               GPT0_ID
-#define GPT_CLOCK_ID                 CLK_GPT0
+#define GPT_COUNTER_ID              GPT0_ID
+#define GPT_CLOCK_ID                CLK_GPT0
 
 /*-------------------- Static Variables ---------------------*/
 static uint32_t ulTimerOverflow = 0;
@@ -108,7 +106,7 @@ void GPT0_IRQHandler_Overflow( void )
 void iot_perfcounter_open( void )
 {
     /* Configure input clock for GPT. */
-    CLK_ModuleClkDivider( GPT_CLOCK_ID, 50 );
+    CLK_ModuleClkDivider( GPT_CLOCK_ID, 10 ); /* todo: this is a hack. not sure why freq is 10 times off. */
 
     /* Enable component clock. */
     CLK_ModuleClkEnable( GPT_CLOCK_ID );
@@ -168,7 +166,7 @@ uint32_t iot_perfcounter_get_frequency_hz( void )
 {
     uint32_t ulSystemFreqHz = CLK_GetSystemClk();
 
-    return ulSystemFreqHz;
+    return ulSystemFreqHz / ( ulSystemFreqHz / HAL_PERF_COUNTER_FREQ );
 }
 
 /*-----------------------------------------------------------*/
