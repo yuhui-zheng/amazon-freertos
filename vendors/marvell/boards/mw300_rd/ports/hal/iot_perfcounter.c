@@ -53,7 +53,7 @@
 /**
  * @brief Maximum performance counter frequency.
  *
- *  SFLL generates a maximum of 200 MHz clock.
+ *  The number comes from maximum frequency system supports, e.g. SFLL.
  */
 #define PERF_COUNTER_FREQ_MAX        ( 200000000 )
 
