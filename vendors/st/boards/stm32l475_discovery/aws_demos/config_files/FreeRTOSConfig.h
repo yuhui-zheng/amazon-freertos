@@ -73,12 +73,23 @@
 
 /* defender metrics experiment */
 #define configGENERATE_RUN_TIME_STATS                1
-#define configUSE_STATS_FORMATTING_FUNCTIONS         0  /* not needed. */
 #define configSUPPORT_DYNAMIC_ALLOCATION             1
 
-extern void aws_hal_perfcounter_open( void );
-#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()    aws_hal_perfcounter_open()
-#define portGET_RUN_TIME_COUNTER_VALUE()            aws_hal_perfcounter_get_value()
+/* Define topics segments used by defender. */
+#define DEVICE_DEFENDER_TEST_MODE                    1
+
+/* Performance counter frequency in Hz. */
+#define configHAL_PERF_COUNTER_FREQ                  ( 100000 )       /* 100KHz, overflows 32-bit in ~11 hours. */
+
+/* Performance counter interface is uint64_t, while kernel only supports uint32_t.
+ * todo: update kernel? */
+extern void iot_perfcounter_open( void );
+#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()    iot_perfcounter_open()
+#define portGET_RUN_TIME_COUNTER_VALUE()            iot_perfcounter_get_value()
+
+/* Defender report groups. */
+#define configDefenderReportHeapStats                 1
+#define configDefenderReportRuntimeStats              1
 
 /* Co-routine definitions. */
 #define configUSE_CO_ROUTINES              0
@@ -128,9 +139,6 @@ extern void aws_hal_perfcounter_open( void );
  * See http://www.FreeRTOS.org/RTOS-Cortex-M3-M4.html. */
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY \
     ( configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << ( 8 - configPRIO_BITS ) )
-
-/* Performance counter frequency in Hz. */
-#define configHAL_PERF_COUNTER_FREQ                  ( 10000000 )       /* 10MHz */
 
 /* Performance counter interrupt priority.
  * Do not disable performance counter interrupt in critical section. */
