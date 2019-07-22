@@ -81,6 +81,7 @@
 /* MW320 has 2 GPT. MW322 has 4 GPT. Use GPT0 for simplicity. */
 #define GPT_COUNTER_ID              GPT0_ID
 #define GPT_CLOCK_ID                CLK_GPT0
+#define GPT_IRQ_ID                  GPT0_IRQn
 
 /*-------------------- Static Variables ---------------------*/
 static uint32_t ulTimerOverflow = 0;
@@ -124,13 +125,25 @@ void iot_perfcounter_open( void )
 
     GPT_Init( GPT_COUNTER_ID, &xGptConfig );
 
-    /* Configure interrupt type.
+    /* Configure accepted interrupt type.
      * This routine assumes the GPT is dedicated to a single purpose, and
      * disables all interrupts other than CNT overflow interrupt.
      * All other types of interrupt disabled --
      * channel status, channel error status, and DMA overflow. */
     GPT_IntMask( GPT_COUNTER_ID, GPT_INT_ALL_MSK, MASK );
     GPT_IntMask( GPT_COUNTER_ID, GPT_INT_CNT_UPP, UNMASK );
+
+    /* Configure interrupt priority.
+     * In order to profile CPU utilization, perf counter interrupt
+     * priority needs to be higher than context switch. So that,
+     * context switch overhead can be properly captured. */
+    NVIC_SetPriority( GPT_IRQ_ID, configHAL_PERF_COUNTER_INTERRUPT_PRIORITY );
+
+    /* Debug -- */
+    configPRINTF( ( "Interrupt priority: PendSV -- 0x%8x, SysTick -- 0x%8x, GPT0 -- 0x%8x",
+                    NVIC_GetPriority( PendSV_IRQn ),
+                    NVIC_GetPriority( SysTick_IRQn ),
+                    NVIC_GetPriority( GPT_IRQ_ID ) ) );
 
     /* Start timer. */
     GPT_Start( GPT_COUNTER_ID );
