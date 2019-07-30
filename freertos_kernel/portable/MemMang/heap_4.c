@@ -335,7 +335,7 @@ void vPortInitialiseBlocks( void )
 void vPortGetHeapStats( HeapStats_t * pxHeapStats )
 {
     BlockLink_t * pxBlock;
-    size_t xBlocks = 0, xMaxSize = 0, xMinSize = 0;
+    size_t xBlocks = 0, xMaxSize = 0, xMinSize = ~( size_t ) 0;
 
     vTaskSuspendAll();
     {
