@@ -53,6 +53,11 @@
 /* Includes for initialization. */
 #include "iot_mqtt.h"
 
+/* Includes for linked list data structure. */
+#include "iot_linear_containers.h"
+
+#include "iot_perfcounter.h"
+
 /* Set to 1 to enable this demo to connect to echo server.
  * Then in the demo output, it is expected to see one more established TCP connection.
  */
@@ -72,6 +77,16 @@ static void _defenderCallback( void * param1,
                                AwsIotDefenderCallbackInfo_t * const pCallbackInfo );
 
 static void _startDefender();
+
+/* Profiles
+ * 1 - a task keeps allocating memory, but does not deallocate.
+ * 2 - a task allocates memory frequently, which is trying to cause memory fragmentation.
+ * 3 - tasks keep being spun up and terminated.
+ */
+static uint32_t prvRand( uint32_t range );
+static void prvProfileMemoryLeak( void );
+static void prvProfileFrequentAllocate( void );
+static void prvProfileFrequentTaskCreation( void );
 
 /*-----------------------------------------------------------*/
 
@@ -174,15 +189,24 @@ static void _defenderTask( void * param )
     SOCKETS_inet_ntoa( expectedIp, expectedIpBuffer );
     IotLogInfo( "expected ip: %s", expectedIpBuffer );
 
+    /* start a profiling case.
+     * 1 - a task keeps allocating memory, but does not deallocate.
+     * 2 - a task allocates memory frequently, which is trying to cause memory fragmentation.
+     * 3 - tasks keep being spun up and terminated.
+     * ......
+     */
+    /*Iot_CreateDetachedThread( prvProfileMemoryLeak, NULL, 5, 1024 ); */
+    /*Iot_CreateDetachedThread( prvProfileFrequentAllocate, NULL, 5, 1024 ); */
+    Iot_CreateDetachedThread( prvProfileFrequentTaskCreation, NULL, 5, 1024 );
 
     /* Let it run for ~10 hours.
      * Our implementation converts ms to ticks, during which overflow may occur.
      *
      * IotClock_SleepMs() takes uint32_t, however the maximum delay this interface supports on STM32L475 port is ~71mins.
      */
-    for (int i = 0; i < 10; i++)
+    for( int i = 0; i < 10; i++ )
     {
-    	IotClock_SleepMs( 3600000 );
+        IotClock_SleepMs( 3600000 );
     }
 
     /* Stop the defender agent. */
@@ -220,10 +244,10 @@ static void _defenderTask( void * param )
                     );
     }
 
-    IotLogInfo( "---- Heap Stats ----" );
-    IotLogInfo( "Port total heap size %lu, free heap size %lu, minimum ever heap size %lu", configTOTAL_HEAP_SIZE, xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize() );
+    /*IotLogInfo( "---- Heap Stats ----" ); */
+    /*IotLogInfo( "Port total heap size %lu, free heap size %lu, minimum ever heap size %lu", configTOTAL_HEAP_SIZE, xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize() ); */
 
-    IotLogInfo( "----Device Defender Demo End----.\r\n" );
+    /*IotLogInfo( "----Device Defender Demo End----.\r\n" ); */
 
     vTaskDelete( NULL ); /* Delete this task. */
 }
@@ -261,6 +285,114 @@ static void _startDefender()
 
     /* Invoke defender start API. */
     AwsIotDefender_Start( &startInfo );
+}
+
+/*-----------------------------------------------------------*/
+
+
+static uint32_t prvRand( uint32_t range )
+{
+    return ( uint32_t ) iot_perfcounter_get_value() % range;
+}
+
+/*-----------------------------------------------------------*/
+
+static void prvProfileHardFault( void )
+{
+}
+
+/*-----------------------------------------------------------*/
+
+static void prvProfileMemoryLeak( void )
+{
+    const size_t uMallocSizeWords = 1024;
+    const uint32_t ulMallocIntervalMs = 10000;
+    void * pvPtr = NULL;
+
+    for( ; ; )
+    {
+        /* Blindly allocate. Check malloc status, if wish. */
+        pvPtr = IotThreads_Malloc( uMallocSizeWords );
+
+        /* Give other tasks a chance to run. */
+        IotClock_SleepMs( ulMallocIntervalMs );
+
+        /* Do no deallocate on purpose. */
+    }
+}
+
+/*-----------------------------------------------------------*/
+#define BLOCK_SIZE_MAX    1024
+#define LIST_SIZE         64
+
+static void prvProfileFrequentAllocate( void )
+{
+    size_t uSize;
+    void * pvPtr;
+    uint8_t uIter = 0;
+    const uint32_t ulMallocIntervalMs = 5000;
+
+    void * pAddressList[ LIST_SIZE ] = { 0 };
+
+    /* Warm up memory.
+     * Allocate memory blocks of random sizes and store the memory addresses.
+     * Don't need to check allocation result, as we are trying to cause error anyway. */
+    for( uIter; uIter < LIST_SIZE; uIter++ )
+    {
+        uSize = ( size_t ) prvRand( BLOCK_SIZE_MAX ) + 1; /* 1-based */
+        pvPtr = IotThreads_Malloc( uSize );
+
+        pAddressList[ uIter ] = pvPtr;
+    }
+
+    for( ; ; )
+    {
+        /* Randomly pick a location to update allocation. */
+        uIter = prvRand( LIST_SIZE ); /* 0-based */
+        IotThreads_Free( pAddressList[ uIter ] );
+
+        /* Allocate a block of random size, and update the location. */
+        uSize = ( size_t ) prvRand( BLOCK_SIZE_MAX ) + 1; /* 1-based */
+        pvPtr = IotThreads_Malloc( uSize );
+
+        pAddressList[ uIter ] = pvPtr;
+
+        /* Give other tasks a chance to run. */
+        IotClock_SleepMs( ulMallocIntervalMs );
+    }
+}
+
+/*-----------------------------------------------------------*/
+
+#define RANDOM_SLEEP_MAX_S    60
+#define NUM_OF_THREADS_MAX    5
+
+static void prvDummyTask( void )
+{
+    /* This task does nothing but only sleeps a random number of time. */
+    uint32_t ulTimeToSleep = prvRand( RANDOM_SLEEP_MAX_S ) + 1; /* 1-based */
+
+    IotClock_SleepMs( ulTimeToSleep * 1000 );
+}
+
+static void prvProfileFrequentTaskCreation( void )
+{
+    uint8_t uRandNum = 0;
+    uint8_t uIter = 0;
+
+    for( ; ; )
+    {
+        /* Create random number of tasks. */
+        uRandNum = prvRand( NUM_OF_THREADS_MAX ) + 1; /* 1-based */
+
+        for( uIter = 0; uIter < uRandNum; uIter++ )
+        {
+            Iot_CreateDetachedThread( prvDummyTask, NULL, 5, configMINIMAL_STACK_SIZE );
+        }
+
+        /* Give other tasks a chance to run. */
+        IotClock_SleepMs( 20000 );
+    }
 }
 
 /*-----------------------------------------------------------*/
