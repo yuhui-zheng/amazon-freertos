@@ -56,7 +56,7 @@
 
 /* Kernel metrics.
  * Prefixed with k (kernel), m (mcu), t (task), hp (hp), st (stack). */
-#define KERNEL_METIRCS                  AwsIotDefenderInternal_SelectTag( "kernel_metrics", "km" )
+#define KERNEL_METRICS                  AwsIotDefenderInternal_SelectTag( "kernel_metrics", "km" )
 #define KERNEL_MCU_UPTIME               AwsIotDefenderInternal_SelectTag( "mcu_uptime", "mupt" )
 #define KERNEL_MCU_UTILIZATION          AwsIotDefenderInternal_SelectTag( "mcu_utilization", "mpct" )
 
@@ -538,7 +538,7 @@ static void _serializeKernelRuntimeStats( void * param1 )
 
     /* Create the "kernel_metrics" map. */
     serializerError = _defenderEncoder.openContainerWithKey( pMetricsObject,
-                                                             KERNEL_METIRCS,
+                                                             KERNEL_METRICS,
                                                              &mcuUptimeMap,
                                                              MAGIC_NUMBER_TOTAL );
     assertNoError( serializerError );
