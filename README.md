@@ -36,6 +36,7 @@ For detailed documentation on FreeRTOS, refer to the [FreeRTOS User Guide](https
 For additional boards that are supported for FreeRTOS, please visit the [AWS Device Catalog](https://devices.amazonaws.com/search?kw=freertos)
 
 The following MCU boards are supported for FreeRTOS:
+Clarify description of console-tested versus IDT supported boards. (#1676)
 1. **Texas Instruments** - [CC3220SF-LAUNCHXL](http://www.ti.com/tool/cc3220sf-launchxl).
     * [Getting Started Guide](https://docs.aws.amazon.com/freertos/latest/userguide/getting_started_ti.html)
     * IDEs: [Code Composer Studio](http://www.ti.com/tools-software/ccs.html), [IAR Embedded Workbench](https://www.iar.com/iar-embedded-workbench/partners/texas-instruments)
